@@ -8,7 +8,11 @@ import jwt from 'jsonwebtoken'
 const port = process.env.PORT || 3000;
 
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server,{
+    cors:{
+        origin: '*'
+    }
+});
 
 io.use((socket, next) => {
     try{
@@ -32,9 +36,16 @@ io.use((socket, next) => {
 
 io.on('connection', socket => {
     console.log('a user connected');
-    client.on('event', data => { /* … */ });
-    client.on('disconnect', () => { /* … */ });
+
+    socket.on('event', data => { 
+        console.log('Received event:', data);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('A user disconnected');
+    });
 });
+
 
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
