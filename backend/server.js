@@ -49,7 +49,6 @@ io.on('connection', socket => {
     socket.join(socket.roomId);
 
     socket.on('project-message', data => {
-        console.log(data)
         socket.broadcast.to(socket.roomId).emit('project-message', data);
     })
 
@@ -59,6 +58,7 @@ io.on('connection', socket => {
 
     socket.on('disconnect', () => {
         console.log('A user disconnected');
+        socket.leave(socket.roomId);
     });
 });
 
