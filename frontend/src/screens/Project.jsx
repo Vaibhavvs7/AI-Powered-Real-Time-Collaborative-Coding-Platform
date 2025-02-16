@@ -1,29 +1,45 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "../config/axios";
 import { initializeSocket, receiveMessage, sendMessage } from "../config/socket";
 import { UserContext } from "../context/user.context";
+import Markdown from "markdown-to-jsx";
+import { use } from 'react'
+
+function SyntaxHighlightedCode(props) {
+  const ref = useRef(null)
+  React.useEffect(() => {
+      if (ref.current && props.className?.includes('lang-') && window.hljs) {
+          window.hljs.highlightElement(ref.current)
+          // hljs won't reprocess the element unless this attribute is removed
+          ref.current.removeAttribute('data-highlighted')
+      }
+  }, [ props.className, props.children ])
+  return <code {...props} ref={ref} />
+}
 
 const Project = () => {
   const location = useLocation();
 
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState(new Set());
   const [users, setUsers] = useState([]);
   const [project, setProject] = useState(location.state.project);
   const [message, setMessage] = useState('');
   const { user } = useContext(UserContext);
-  const messageBox = React.createRef();
+  const messageBox = useRef(null);
+
+  const [messages, setMessages] = useState([]);
 
   const handleUserClick = (id) => {
     setSelectedUserId(prevSelectedUserId => {
       const newSelectedUserId = new Set(prevSelectedUserId);
-      if(newSelectedUserId.has(id)) {
+      if (newSelectedUserId.has(id)) {
         newSelectedUserId.delete(id);
       } else {
         newSelectedUserId.add(id);
-      } 
+      }
       return newSelectedUserId;
     });
   };
@@ -33,65 +49,43 @@ const Project = () => {
       message,
       sender: user.email
     });
-    appendOutgoingMessage(message);
-    setMessage("")
-  }
+
+    setMessages(prevMessages => [...prevMessages, { sender: user, message }]);
+    setMessage("");
+  };
 
   useEffect(() => {
-    initializeSocket(project._id)
+    initializeSocket(project._id);
 
     receiveMessage('project-message', (data) => {
       console.log(data);
-      appendIncomingMessage(data);
+      setMessages(prevMessages => [...prevMessages, data]);
     });
 
-
     axios.get(`/projects/get-project/${location.state.project._id}`).then((res) => {
-      console.log(res.data.project);
       setProject(res.data.project);
     }).catch((err) => {
       console.log(err);
     });
 
-
-    // Fetch all users from the backend
     axios.get('/users/all').then((res) => {
       setUsers(res.data.users);
     }).catch((err) => {
       console.log(err);
     });
-  }, []);
+  }, [project._id, location.state.project._id]);
 
-  function appendIncomingMessage(messageObject){
-    const messageBox = document.querySelector('.message-box')
-    const message = document.createElement('div')
-    message.classList.add('message', 'max-w-56', 'flex', 'flex-col', 'p-2', 'bg-slate-50', 'w-fit', 'rounded-md')
-    message.innerHTML = `<small class='opacity-65 text-xs'>${messageObject.sender}</small><p class='text-sm'>${messageObject.message}</p>`
-    messageBox.appendChild(message)
-    scrollToBottom();
-  }
+  useEffect(() => {
+    if (messageBox.current) {
+      messageBox.current.scrollTop = messageBox.current.scrollHeight;
+    }
+  }, [messages]);
 
-  function appendOutgoingMessage(message){
-    const messageBox = document.querySelector('.message-box')
-    const messageElement = document.createElement('div')
-    messageElement.classList.add('ml-auto', 'max-w-56', 'message', 'flex', 'flex-col', 'p-2', 'bg-slate-50', 'w-fit', 'rounded-md')
-    messageElement.innerHTML = `<small class='opacity-65 text-xs'>${user.email}</small><p class='text-sm'>${message}</p>`
-    messageBox.appendChild(messageElement)
-    scrollToBottom();
-  }
-
-  function scrollToBottom(){
-    messageBox.current.scrollTop = messageBox.current.scrollHeight;
-  }
-
-  
-
-  function addCollaborators(){
-    axios.put("/projects/add-user",{
+  const addCollaborators = () => {
+    axios.put("/projects/add-user", {
       projectId: location.state.project._id,
       users: Array.from(selectedUserId)
     }).then((res) => {
-      console.log(res.data);
       setIsModalOpen(false);
     }).catch((err) => {
       console.log(err);
@@ -115,8 +109,29 @@ const Project = () => {
         </header>
         <div className="conversation-area pt-14 pb-10 flex-grow flex flex-col h-full relative">
           <div 
-          ref={messageBox}
-          className="message-box flex-grow flex flex-col gap-1 p-1 overflow-auto max-h-full scrollbar-hide"> 
+            ref={messageBox}
+            className="message-box flex-grow flex flex-col gap-1 p-1 overflow-auto max-h-full scrollbar-hide"> 
+            {messages.map((msg, index) => (
+              <div key={index} className={`${msg.sender._id === 'ai' ? 'max-w-80' : 'max-w-54'} ${msg.sender._id == user._id.toString() && 'ml-auto'}  message flex flex-col p-2 bg-slate-50 w-fit rounded-md`}>    
+                                          <small className='opacity-65 text-xs'>{msg.sender.email}</small>
+                                <p className='text-sm'>
+                                    {msg.sender._id === 'ai' ?
+                                        <div
+                                            className='overflow-auto bg-slate-950 text-white rounded-sm p-2'
+                                        >
+                                            <Markdown
+                                                children={msg.message}
+                                                options={{
+                                                    overrides: {
+                                                        code: SyntaxHighlightedCode,
+                                                    },
+                                                }}
+                                            />
+                                        </div>
+                                        : msg.message}
+                                </p>
+                            </div>
+                        ))}
           </div>
           <div className="inputField w-full flex absolute bottom-0">
             <input 
@@ -150,17 +165,14 @@ const Project = () => {
             </header>
 
             <div className="users flex flex-col gap-2">
-
-              {project.users && project.users.map((user) => {
-                return (
-                  <div className="user cursor-pointer hover:bg-slate-100 p-2 flex gap-2 items-center">
-                <div className="aspect-square rounded-full w-fit h-fit flex items-center justify-center p-5 text-white bg-slate-600">
-                  <i className="ri-user-fill absolute"></i>
+              {project.users && project.users.map((user) => (
+                <div key={user._id} className="user cursor-pointer hover:bg-slate-100 p-2 flex gap-2 items-center">
+                  <div className="aspect-square rounded-full w-fit h-fit flex items-center justify-center p-5 text-white bg-slate-600">
+                    <i className="ri-user-fill absolute"></i>
+                  </div>
+                  <h1 className="font-semibold text-lg">{user.email}</h1>
                 </div>
-                <h1 className="font-semibold text-lg">{user.email}</h1>
-              </div>
-                )
-              })}
+              ))}
             </div>
           </div>
         </div>
@@ -178,9 +190,9 @@ const Project = () => {
             <div className="users-list flex flex-col gap-2 mb-16 max-h-96 overflow-auto">
               {users.map(user => (
                 <div
-                  key={user.id}
+                  key={user._id}
                   className={`user cursor-pointer hover:bg-slate-200 ${
-                    Array.from(selectedUserId).indexOf(user._id) != -1 ? 'bg-slate-200' : ""
+                    selectedUserId.has(user._id) ? 'bg-slate-200' : ""
                   } p-2 flex gap-2 items-center`}
                   onClick={() => handleUserClick(user._id)}
                 >
