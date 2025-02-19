@@ -18,7 +18,8 @@ response:{
 "text":"this is you fileTree structure of the express server".
 "fileTree":{
 "app.js":{
-content:"
+file:{
+contents:"
 const express = require('express');
 const app = express();
 app.get('/', (req, res) => {
@@ -28,9 +29,11 @@ app.listen(3000, () => {
 console.log('Server is running on port 3000');
 })
 "
+
 },
 "package.json":{
-content:"
+file:{
+contents:"
 {
 "name": "temp-server",
 "version": "1.0.0",
@@ -46,8 +49,9 @@ content:"
 "express": "^4.21.2"
 }
 }
-",
 
+",
+},
 },
 
 
