@@ -42,6 +42,7 @@ const Project = () => {
   const [openFiles, setOpenFiles] = useState([]);
 
   const [webContainer, setWebContainer] = useState(null);
+  const [iframeURL, setIframeURL] = useState(null)
 
   const handleUserClick = (id) => {
     setSelectedUserId((prevSelectedUserId) => {
@@ -165,7 +166,7 @@ const Project = () => {
               <div
                 key={index}
                 className={`${
-                  msg.sender._id === "ai" ? "max-w-80" : "max-w-54"
+                  msg.sender._id === "ai" ? "max-w-80" : "max-w-52"
                 } ${
                   msg.sender._id == user._id.toString() && "ml-auto"
                 }  message flex flex-col p-2 bg-slate-50 w-fit rounded-md`}
@@ -243,9 +244,10 @@ const Project = () => {
             ))}
           </div>
         </div>
-        {currentFile && (
+
           <div className="code-editor flex flex-col flex-grow h-full shrink">
-            <div className="top flex">
+            <div className="top flex justify-between w-full">
+              <div className="files flex">
               {openFiles.map((file, index) => (
                 <button
                 key={index}
@@ -257,7 +259,38 @@ const Project = () => {
                   <p className="font-semibold text-lg">{file}</p>
                 </button>
               ))}
+              </div>
+              <div className="actions flex gap-2">
+                <button onClick={ async () => {
+                  webContainer?.mount(fileTree);
+                  const installProcess = await webContainer.spawn("npm",["install"]);
+                  installProcess.output.pipeTo(new WritableStream({
+                    write(chunk){
+                      console.log(chunk);
+                    }
+                  })
+                  )
+                  
+                  const runProcess = await webContainer.spawn("npm",["start"]);
+
+                  runProcess.output.pipeTo(new WritableStream({
+                    write(chunk){
+                      console.log(chunk);
+                    }
+                  })
+                  )
+                  webContainer.on('server-ready',(port, url)=>{
+                    console.log(port, url);
+                    setIframeURL(url);
+                  })
+                
+                }}
+                  className='p-2 px-4 bg-slate-300 text-black'
+                >
+                  run
+                </button>
             </div>
+          </div>
             <div className="bottom flex flex-grow max-w-full shrink overflow-auto">
               {fileTree[currentFile] && (
                 <div className="code-editor-area h-full overflow-auto flex-grow bg-slate-50">
@@ -289,7 +322,14 @@ const Project = () => {
               )}
             </div>
           </div>
-        )}
+
+          {iframeURL && webContainer && (
+            <iframe
+              src={iframeURL}
+              className="w-1/2 h-full"
+            ></iframe>
+          )}
+
       </section>
 
       {isModalOpen && (
