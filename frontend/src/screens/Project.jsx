@@ -95,15 +95,29 @@ const Project = () => {
       );
     }
 
-    receiveMessage("project-message", (data) => {
-      const message = JSON.parse(data.message);
-      console.log(message);
-      webContainer?.mount(message.fileTree);
-      if(message.fileTree){
-        setFileTree(message.fileTree);
+    receiveMessage('project-message', data => {
+
+      console.log(data)
+      
+      if (data.sender._id == 'ai') {
+
+
+          const message = JSON.parse(data.message)
+
+          console.log(message)
+
+          webContainer?.mount(message.fileTree)
+
+          if (message.fileTree) {
+              setFileTree(message.fileTree || {})
+          }
+          setMessages(prevMessages => [ ...prevMessages, data ]) // Update messages state
+      } else {
+
+
+          setMessages(prevMessages => [ ...prevMessages, data ]) // Update messages state
       }
-      setMessages((prevMessages) => [...prevMessages, data]);
-    });
+  })
 
     axios
       .get(`/projects/get-project/${location.state.project._id}`)
