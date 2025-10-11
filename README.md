@@ -41,6 +41,13 @@ SEAI is an advanced real-time messaging platform powered by cutting-edge AI and 
 - Allows users to modify, add, or remove files within the chat interface.
 
 ---
+<div>
+  <img src="Home.png" alt="home">
+</div>
+<div>
+  <img src="project.png" alt="project">
+</div>
+---
 
 ## Installation
 
